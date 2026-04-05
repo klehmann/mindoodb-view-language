@@ -63,6 +63,19 @@ describe("formulaSource", () => {
     ).toBe('v.eq(v.field("status"), "open")');
   });
 
+  it("parses, formats, and evaluates v.origin()", () => {
+    const expression = parseMindooDBFormulaExpression("v.origin()");
+
+    expect(expression).toEqual({ kind: "origin" });
+    expect(formatMindooDBFormulaExpression(expression)).toBe("v.origin()");
+    expect(evaluateExpression(expression, {
+      doc: {},
+      values: {},
+      origin: "remote:replica-1:sales",
+      variables: {},
+    })).toBe("remote:replica-1:sales");
+  });
+
   it("flags likely boolean formulas and rejects unknown let references", () => {
     const filterExpression = parseMindooDBFormulaBooleanExpression(
       'v.and(v.exists(v.field("status")), v.eq(v.field("status"), v.string("open")))',
