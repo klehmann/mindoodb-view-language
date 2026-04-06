@@ -1,6 +1,6 @@
 {
   "name": "mindoodb-view-language",
-  "version": "1.0.0",
+  "version": "0.0.4",
   "description": "MindooDB view language shared expression types, builder, and evaluator",
   "license": "ISC",
   "author": "Mindoo GmbH",
