@@ -30,5 +30,15 @@ describe("view language metadata", () => {
       category: "string",
       signature: "left(value, by)",
     });
+    expect(getMindooDBViewLanguageHelper("decryptionKeyId")).toMatchObject({
+      category: "context",
+      signature: "decryptionKeyId()",
+      returnType: "Expression<string | null>",
+    });
+    expect(getMindooDBViewLanguageHelper("attachmentCount")).toMatchObject({
+      category: "context",
+      signature: "attachmentCount()",
+      returnType: "Expression<number>",
+    });
   });
 });

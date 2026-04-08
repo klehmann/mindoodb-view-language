@@ -145,4 +145,32 @@ describe("createViewLanguage", () => {
       ],
     });
   });
+
+  it("builds document metadata and attachment helper expressions", () => {
+    const v = createViewLanguage<{ _attachments?: Array<{ fileName: string; size: number }> }>();
+
+    expect(v.decryptionKeyId()).toEqual({
+      kind: "operation",
+      op: "decryptionKeyId",
+      args: [],
+    });
+
+    expect(v.attachmentNames()).toEqual({
+      kind: "operation",
+      op: "attachmentNames",
+      args: [],
+    });
+
+    expect(v.attachmentLengths()).toEqual({
+      kind: "operation",
+      op: "attachmentLengths",
+      args: [],
+    });
+
+    expect(v.attachmentCount()).toEqual({
+      kind: "operation",
+      op: "attachmentCount",
+      args: [],
+    });
+  });
 });

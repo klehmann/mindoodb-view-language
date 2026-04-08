@@ -19,6 +19,7 @@ describe("viewRuntime", () => {
     rate: number;
     workDate: string;
     note?: string;
+    _attachments?: Array<{ fileName?: string; size?: number }>;
   }>();
 
   const definition = {
@@ -63,8 +64,22 @@ describe("viewRuntime", () => {
   };
 
   const documents = [
-    { id: "doc-1", data: { employee: "Ada", hours: 8, rate: 10, workDate: "2026-04-01", note: "Planning" } },
-    { id: "doc-2", data: { employee: "Ada", hours: 4, rate: 11, workDate: "2026-04-02" } },
+    {
+      id: "doc-1",
+      decryptionKeyId: "default",
+      data: {
+        employee: "Ada",
+        hours: 8,
+        rate: 10,
+        workDate: "2026-04-01",
+        note: "Planning",
+        _attachments: [
+          { fileName: "timesheet.pdf", size: 12 },
+          { fileName: "receipt.png", size: 34 },
+        ],
+      },
+    },
+    { id: "doc-2", decryptionKeyId: null, data: { employee: "Ada", hours: 4, rate: 11, workDate: "2026-04-02" } },
     { id: "doc-3", data: { employee: "Bob", hours: 0, rate: 12, workDate: "2026-04-03" } },
   ];
 
@@ -142,5 +157,66 @@ describe("viewRuntime", () => {
       origin: "tenant/db",
       variables: {},
     })).toBe("_d");
+  });
+
+  it("evaluates document metadata and attachment helpers", () => {
+    expect(evaluateExpression(v.decryptionKeyId(), {
+      doc: documents[0]!.data,
+      values: {},
+      origin: "tenant/db",
+      decryptionKeyId: documents[0]!.decryptionKeyId,
+      variables: {},
+    })).toBe("default");
+    expect(evaluateExpression(v.attachmentNames(), {
+      doc: documents[0]!.data,
+      values: {},
+      origin: "tenant/db",
+      variables: {},
+    })).toEqual(["timesheet.pdf", "receipt.png"]);
+    expect(evaluateExpression(v.attachmentLengths(), {
+      doc: documents[0]!.data,
+      values: {},
+      origin: "tenant/db",
+      variables: {},
+    })).toEqual([12, 34]);
+    expect(evaluateExpression(v.attachmentCount(), {
+      doc: documents[0]!.data,
+      values: {},
+      origin: "tenant/db",
+      variables: {},
+    })).toBe(2);
+    expect(evaluateExpression(v.decryptionKeyId(), {
+      doc: documents[1]!.data,
+      values: {},
+      origin: "tenant/db",
+      decryptionKeyId: documents[1]!.decryptionKeyId,
+      variables: {},
+    })).toBeNull();
+  });
+
+  it("threads decryption key metadata through paged view evaluation", () => {
+    const runtimeDefinition = {
+      title: "Attachments",
+      columns: [
+        {
+          name: "keyId",
+          role: "display" as const,
+          expression: v.decryptionKeyId(),
+        },
+        {
+          name: "attachmentCount",
+          role: "display" as const,
+          expression: v.attachmentCount(),
+        },
+      ],
+    };
+
+    const page = pageViewRows(runtimeDefinition, documents, "tenant/db", { pageSize: 10 });
+
+    expect(page.rows.map((row) => [row.key, row.values])).toEqual([
+      ["doc-2", { keyId: null, attachmentCount: 0 }],
+      ["doc-3", { keyId: null, attachmentCount: 0 }],
+      ["doc-1", { keyId: "default", attachmentCount: 2 }],
+    ]);
   });
 });

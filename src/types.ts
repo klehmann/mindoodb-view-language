@@ -8,6 +8,10 @@ export type MindooDBAppViewTotalMode = "sum" | "average" | "none";
 export type MindooDBAppViewExpressionDatePart = "year" | "month" | "day" | "quarter";
 /** Low-level operation identifiers used by AST operation nodes. */
 export type MindooDBAppViewExpressionOperation =
+  | "decryptionKeyId"
+  | "attachmentNames"
+  | "attachmentLengths"
+  | "attachmentCount"
   | "add"
   | "sub"
   | "mul"

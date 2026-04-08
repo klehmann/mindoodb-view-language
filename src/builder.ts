@@ -111,6 +111,18 @@ export function createViewLanguage<
     origin(): MindooDBAppExpression<string> {
       return { kind: "origin" };
     },
+    decryptionKeyId(): MindooDBAppExpression<string | null> {
+      return { kind: "operation", op: "decryptionKeyId", args: [] };
+    },
+    attachmentNames(): MindooDBAppExpression<string[]> {
+      return { kind: "operation", op: "attachmentNames", args: [] };
+    },
+    attachmentLengths(): MindooDBAppExpression<number[]> {
+      return { kind: "operation", op: "attachmentLengths", args: [] };
+    },
+    attachmentCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "attachmentCount", args: [] };
+    },
     add(left: MindooDBAppExpressionInput, right: MindooDBAppExpressionInput): MindooDBAppExpression<number> {
       return { kind: "operation", op: "add", args: [toExpression(left), toExpression(right)] };
     },

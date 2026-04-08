@@ -85,6 +85,10 @@ export const mindooDBViewLanguageHelpers = [
     { name: "path", kind: "value-path", description: "A dot-separated path from the typed value context." },
   ], ["v.value(\"amount\")"]),
   helper("origin", "context", "Return the current row origin.", "Reads the origin/source identifier for the current row or document.", "origin()", "Expression<string>", [], ["v.origin()"]),
+  helper("decryptionKeyId", "context", "Return the current document decryption key id.", "Reads the optional decryption key identifier provided as document metadata by the host runtime.", "decryptionKeyId()", "Expression<string | null>", [], ["v.decryptionKeyId()"]),
+  helper("attachmentNames", "context", "List attachment file names.", "Reads the current document's `_attachments` array and returns the `fileName` values as a string array.", "attachmentNames()", "Expression<string[]>", [], ["v.attachmentNames()"]),
+  helper("attachmentLengths", "context", "List attachment sizes.", "Reads the current document's `_attachments` array and returns the numeric `size` values as a number array.", "attachmentLengths()", "Expression<number[]>", [], ["v.attachmentLengths()"]),
+  helper("attachmentCount", "context", "Count document attachments.", "Reads the current document's `_attachments` array and returns the number of attachment entries.", "attachmentCount()", "Expression<number>", [], ["v.attachmentCount()"]),
   helper("toNumber", "conversion", "Convert a value to a finite number.", "Attempts numeric conversion and returns null when the input is not a finite number.", "toNumber(value)", "Expression<number | null>", [
     { name: "value", kind: "expression", description: "The expression to convert." },
   ], ["v.toNumber(v.field(\"hours\"))"]),

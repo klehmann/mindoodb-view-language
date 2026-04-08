@@ -218,6 +218,54 @@ Returns the origin identifier for the current document source. This is an intern
 v.origin()
 ```
 
+#### `decryptionKeyId()`
+
+Returns the document decryption key identifier for the current document when the host runtime provides it. This value is document metadata, not part of the document payload itself.
+
+- **Arguments:** none
+- **Returns:** `Expression<string | null>`
+- **Runtime behavior:** returns the key id string when available, otherwise `null`
+
+```ts
+v.decryptionKeyId()
+```
+
+#### `attachmentNames()`
+
+Returns the list of attachment file names from the current document's `_attachments` array.
+
+- **Arguments:** none
+- **Returns:** `Expression<string[]>`
+- **Runtime behavior:** returns an empty array when the document has no `_attachments`
+
+```ts
+v.attachmentNames()
+```
+
+#### `attachmentLengths()`
+
+Returns the list of attachment sizes from the current document's `_attachments` array.
+
+- **Arguments:** none
+- **Returns:** `Expression<number[]>`
+- **Runtime behavior:** returns an empty array when the document has no `_attachments`
+
+```ts
+v.attachmentLengths()
+```
+
+#### `attachmentCount()`
+
+Returns the number of attachments in the current document's `_attachments` array.
+
+- **Arguments:** none
+- **Returns:** `Expression<number>`
+- **Runtime behavior:** returns `0` when the document has no `_attachments`
+
+```ts
+v.attachmentCount()
+```
+
 ---
 
 ### Type conversion

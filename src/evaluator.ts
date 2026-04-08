@@ -22,7 +22,13 @@ type EvaluationContext = {
   doc: Record<string, unknown>;
   values: Record<string, unknown>;
   origin: string;
+  decryptionKeyId?: string | null;
   variables: Record<string, unknown>;
+};
+
+type AttachmentLike = {
+  fileName?: unknown;
+  size?: unknown;
 };
 
 /** Creates the initial category expansion mode for a view definition. */
@@ -103,10 +109,27 @@ function rightString(value: unknown, by: unknown): string {
   return index === -1 ? text : text.slice(index + delimiter.length);
 }
 
+function getAttachmentList(doc: Record<string, unknown>): AttachmentLike[] {
+  const attachments = doc._attachments;
+  return Array.isArray(attachments) ? attachments as AttachmentLike[] : [];
+}
+
 /** Evaluates a single operation node after its arguments have been recursively resolved. */
 function evaluateOperation(expression: Extract<MindooDBAppExpression, { kind: "operation" }>, context: EvaluationContext): unknown {
   const args = expression.args.map((arg) => evaluateExpression(arg, context));
   switch (expression.op) {
+    case "decryptionKeyId":
+      return context.decryptionKeyId ?? null;
+    case "attachmentNames":
+      return getAttachmentList(context.doc)
+        .map((attachment) => attachment.fileName)
+        .filter((value): value is string => typeof value === "string");
+    case "attachmentLengths":
+      return getAttachmentList(context.doc)
+        .map((attachment) => attachment.size)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    case "attachmentCount":
+      return getAttachmentList(context.doc).length;
     case "add":
       return (toNumber(args[0]) ?? 0) + (toNumber(args[1]) ?? 0);
     case "sub":
@@ -245,13 +268,19 @@ function compareValues(left: unknown, right: unknown, sorting = "ascending") {
 }
 
 /** Computes all column values for one document from left to right. */
-function computeRowValues(definition: MindooDBAppViewDefinition, document: Record<string, unknown>, origin: string) {
+function computeRowValues(
+  definition: MindooDBAppViewDefinition,
+  document: Record<string, unknown>,
+  origin: string,
+  decryptionKeyId?: string | null,
+) {
   const values: Record<string, unknown> = {};
   for (const column of definition.columns) {
     values[column.name] = evaluateExpression(column.expression, {
       doc: document,
       values,
       origin,
+      decryptionKeyId,
       variables: {},
     });
   }
@@ -259,7 +288,12 @@ function computeRowValues(definition: MindooDBAppViewDefinition, document: Recor
 }
 
 /** Applies the optional view filter before row materialization. */
-function matchesFilter(filter: MindooDBAppBooleanExpression | undefined, document: Record<string, unknown>, origin: string) {
+function matchesFilter(
+  filter: MindooDBAppBooleanExpression | undefined,
+  document: Record<string, unknown>,
+  origin: string,
+  decryptionKeyId?: string | null,
+) {
   if (!filter) {
     return true;
   }
@@ -267,6 +301,7 @@ function matchesFilter(filter: MindooDBAppBooleanExpression | undefined, documen
     doc: document,
     values: {},
     origin,
+    decryptionKeyId,
     variables: {},
   }));
 }
@@ -341,13 +376,17 @@ function buildRowsRecursive(
 }
 
 /** Materializes a complete view tree from raw documents and the declarative definition. */
-function buildViewTree(definition: MindooDBAppViewDefinition, documents: Array<{ id: string; data: Record<string, unknown> }>, origin: string): ViewTree {
+function buildViewTree(
+  definition: MindooDBAppViewDefinition,
+  documents: Array<{ id: string; data: Record<string, unknown>; decryptionKeyId?: string | null }>,
+  origin: string,
+): ViewTree {
   const sortableColumns = definition.columns.filter((column) => column.role !== "total");
   const computedRows = documents
-    .filter((document) => matchesFilter(definition.filter?.expression, document.data, origin))
+    .filter((document) => matchesFilter(definition.filter?.expression, document.data, origin, document.decryptionKeyId))
     .map((document) => ({
       docId: document.id,
-      values: computeRowValues(definition, document.data, origin),
+      values: computeRowValues(definition, document.data, origin, document.decryptionKeyId),
     }));
 
   computedRows.sort((left, right) => {
@@ -436,7 +475,7 @@ function pageRows(rows: MindooDBAppViewRow[], pageSize = 100, position?: string 
 /** Builds and pages the visible rows for a full view request. */
 export function pageViewRows(
   definition: MindooDBAppViewDefinition,
-  documents: Array<{ id: string; data: Record<string, unknown> }>,
+  documents: Array<{ id: string; data: Record<string, unknown>; decryptionKeyId?: string | null }>,
   origin: string,
   request?: MindooDBAppViewPageRequest,
   fallbackExpansion?: MindooDBAppViewExpansionState,
@@ -450,7 +489,7 @@ export function pageViewRows(
 /** Returns a single row by key from the fully materialized tree. */
 export function getViewRow(
   definition: MindooDBAppViewDefinition,
-  documents: Array<{ id: string; data: Record<string, unknown> }>,
+  documents: Array<{ id: string; data: Record<string, unknown>; decryptionKeyId?: string | null }>,
   origin: string,
   rowKey: string,
 ) {
@@ -460,7 +499,7 @@ export function getViewRow(
 /** Resolves a category row by its full path segments. */
 export function getCategoryRowByPath(
   definition: MindooDBAppViewDefinition,
-  documents: Array<{ id: string; data: Record<string, unknown> }>,
+  documents: Array<{ id: string; data: Record<string, unknown>; decryptionKeyId?: string | null }>,
   origin: string,
   path: string[],
 ) {
@@ -470,7 +509,7 @@ export function getCategoryRowByPath(
 /** Pages only the visible children below a specific category row. */
 export function pageCategoryRows(
   definition: MindooDBAppViewDefinition,
-  documents: Array<{ id: string; data: Record<string, unknown> }>,
+  documents: Array<{ id: string; data: Record<string, unknown>; decryptionKeyId?: string | null }>,
   origin: string,
   categoryKey: string,
   expansion: MindooDBAppViewExpansionState,
@@ -507,7 +546,7 @@ function collectDocumentIds(tree: ViewTree, rowKey: string, target: string[]) {
 /** Lists the document ids contained below a category row. */
 export function listCategoryDocumentIds(
   definition: MindooDBAppViewDefinition,
-  documents: Array<{ id: string; data: Record<string, unknown> }>,
+  documents: Array<{ id: string; data: Record<string, unknown>; decryptionKeyId?: string | null }>,
   origin: string,
   categoryKey: string,
 ) {

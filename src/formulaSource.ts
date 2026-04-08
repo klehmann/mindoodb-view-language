@@ -6,6 +6,10 @@ import type {
 } from "./types";
 
 const OP_TO_HELPER: Record<MindooDBAppViewExpressionOperation, string> = {
+  decryptionKeyId: "decryptionKeyId",
+  attachmentNames: "attachmentNames",
+  attachmentLengths: "attachmentLengths",
+  attachmentCount: "attachmentCount",
   add: "add",
   sub: "sub",
   mul: "mul",

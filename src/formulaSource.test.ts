@@ -76,6 +76,38 @@ describe("formulaSource", () => {
     })).toBe("remote:replica-1:sales");
   });
 
+  it("parses, formats, and evaluates metadata and attachment helpers", () => {
+    const decryptionKeyExpression = parseMindooDBFormulaExpression("v.decryptionKeyId()");
+    const attachmentNamesExpression = parseMindooDBFormulaExpression("v.attachmentNames()");
+    const attachmentLengthsExpression = parseMindooDBFormulaExpression("v.attachmentLengths()");
+    const attachmentCountExpression = parseMindooDBFormulaExpression("v.attachmentCount()");
+    const context = {
+      doc: {
+        _attachments: [
+          { fileName: "a.txt", size: 10 },
+          { fileName: "b.png", size: 25 },
+        ],
+      },
+      values: {},
+      origin: "remote:replica-1:sales",
+      decryptionKeyId: "default",
+      variables: {},
+    };
+
+    expect(decryptionKeyExpression).toEqual({ kind: "operation", op: "decryptionKeyId", args: [] });
+    expect(attachmentNamesExpression).toEqual({ kind: "operation", op: "attachmentNames", args: [] });
+    expect(attachmentLengthsExpression).toEqual({ kind: "operation", op: "attachmentLengths", args: [] });
+    expect(attachmentCountExpression).toEqual({ kind: "operation", op: "attachmentCount", args: [] });
+    expect(formatMindooDBFormulaExpression(decryptionKeyExpression)).toBe("v.decryptionKeyId()");
+    expect(formatMindooDBFormulaExpression(attachmentNamesExpression)).toBe("v.attachmentNames()");
+    expect(formatMindooDBFormulaExpression(attachmentLengthsExpression)).toBe("v.attachmentLengths()");
+    expect(formatMindooDBFormulaExpression(attachmentCountExpression)).toBe("v.attachmentCount()");
+    expect(evaluateExpression(decryptionKeyExpression, context)).toBe("default");
+    expect(evaluateExpression(attachmentNamesExpression, context)).toEqual(["a.txt", "b.png"]);
+    expect(evaluateExpression(attachmentLengthsExpression, context)).toEqual([10, 25]);
+    expect(evaluateExpression(attachmentCountExpression, context)).toBe(2);
+  });
+
   it("flags likely boolean formulas and rejects unknown let references", () => {
     const filterExpression = parseMindooDBFormulaBooleanExpression(
       'v.and(v.exists(v.field("status")), v.eq(v.field("status"), v.string("open")))',
