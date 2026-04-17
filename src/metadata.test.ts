@@ -30,6 +30,12 @@ describe("view language metadata", () => {
       category: "string",
       signature: "left(value, by)",
     });
+    expect(getMindooDBViewLanguageHelper("createdAt")).toMatchObject({
+      category: "context",
+      signature: "createdAt()",
+      returnType: "Expression<string | null>",
+      examples: ["v.createdAt()"],
+    });
     expect(getMindooDBViewLanguageHelper("decryptionKeyId")).toMatchObject({
       category: "context",
       signature: "decryptionKeyId()",

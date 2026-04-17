@@ -85,6 +85,7 @@ export const mindooDBViewLanguageHelpers = [
     { name: "path", kind: "value-path", description: "A dot-separated path from the typed value context." },
   ], ["v.value(\"amount\")"]),
   helper("origin", "context", "Return the current row origin.", "Reads the origin/source identifier for the current row or document.", "origin()", "Expression<string>", [], ["v.origin()"]),
+  helper("createdAt", "context", "Return the current document creation timestamp.", "Reads the ISO-8601 creation timestamp provided as document metadata by the host runtime.", "createdAt()", "Expression<string | null>", [], ["v.createdAt()"]),
   helper("decryptionKeyId", "context", "Return the current document decryption key id.", "Reads the optional decryption key identifier provided as document metadata by the host runtime.", "decryptionKeyId()", "Expression<string | null>", [], ["v.decryptionKeyId()"]),
   helper("attachmentNames", "context", "List attachment file names.", "Reads the current document's `_attachments` array and returns the `fileName` values as a string array.", "attachmentNames()", "Expression<string[]>", [], ["v.attachmentNames()"]),
   helper("attachmentLengths", "context", "List attachment sizes.", "Reads the current document's `_attachments` array and returns the numeric `size` values as a number array.", "attachmentLengths()", "Expression<number[]>", [], ["v.attachmentLengths()"]),

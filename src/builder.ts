@@ -111,6 +111,9 @@ export function createViewLanguage<
     origin(): MindooDBAppExpression<string> {
       return { kind: "origin" };
     },
+    createdAt(): MindooDBAppExpression<string | null> {
+      return { kind: "operation", op: "createdAt", args: [] };
+    },
     decryptionKeyId(): MindooDBAppExpression<string | null> {
       return { kind: "operation", op: "decryptionKeyId", args: [] };
     },

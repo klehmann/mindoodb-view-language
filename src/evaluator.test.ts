@@ -66,6 +66,7 @@ describe("viewRuntime", () => {
   const documents = [
     {
       id: "doc-1",
+      createdAt: "2026-04-01T09:00:00.000Z",
       decryptionKeyId: "default",
       data: {
         employee: "Ada",
@@ -79,7 +80,12 @@ describe("viewRuntime", () => {
         ],
       },
     },
-    { id: "doc-2", decryptionKeyId: null, data: { employee: "Ada", hours: 4, rate: 11, workDate: "2026-04-02" } },
+    {
+      id: "doc-2",
+      createdAt: "2026-04-02T09:00:00.000Z",
+      decryptionKeyId: null,
+      data: { employee: "Ada", hours: 4, rate: 11, workDate: "2026-04-02" },
+    },
     { id: "doc-3", data: { employee: "Bob", hours: 0, rate: 12, workDate: "2026-04-03" } },
   ];
 
@@ -160,6 +166,13 @@ describe("viewRuntime", () => {
   });
 
   it("evaluates document metadata and attachment helpers", () => {
+    expect(evaluateExpression(v.createdAt(), {
+      doc: documents[0]!.data,
+      values: {},
+      origin: "tenant/db",
+      createdAt: documents[0]!.createdAt,
+      variables: {},
+    })).toBe("2026-04-01T09:00:00.000Z");
     expect(evaluateExpression(v.decryptionKeyId(), {
       doc: documents[0]!.data,
       values: {},
@@ -192,12 +205,23 @@ describe("viewRuntime", () => {
       decryptionKeyId: documents[1]!.decryptionKeyId,
       variables: {},
     })).toBeNull();
+    expect(evaluateExpression(v.createdAt(), {
+      doc: documents[2]!.data,
+      values: {},
+      origin: "tenant/db",
+      variables: {},
+    })).toBeNull();
   });
 
-  it("threads decryption key metadata through paged view evaluation", () => {
+  it("threads document metadata through paged view evaluation", () => {
     const runtimeDefinition = {
       title: "Attachments",
       columns: [
+        {
+          name: "createdAt",
+          role: "display" as const,
+          expression: v.createdAt(),
+        },
         {
           name: "keyId",
           role: "display" as const,
@@ -214,9 +238,9 @@ describe("viewRuntime", () => {
     const page = pageViewRows(runtimeDefinition, documents, "tenant/db", { pageSize: 10 });
 
     expect(page.rows.map((row) => [row.key, row.values])).toEqual([
-      ["doc-2", { keyId: null, attachmentCount: 0 }],
-      ["doc-3", { keyId: null, attachmentCount: 0 }],
-      ["doc-1", { keyId: "default", attachmentCount: 2 }],
+      ["doc-3", { createdAt: null, keyId: null, attachmentCount: 0 }],
+      ["doc-1", { createdAt: "2026-04-01T09:00:00.000Z", keyId: "default", attachmentCount: 2 }],
+      ["doc-2", { createdAt: "2026-04-02T09:00:00.000Z", keyId: null, attachmentCount: 0 }],
     ]);
   });
 });
