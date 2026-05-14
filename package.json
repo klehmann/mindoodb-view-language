@@ -1,6 +1,10 @@
 {
   "name": "mindoodb-view-language",
   "version": "0.0.11",
+  "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "description": "MindooDB view language shared expression types, builder, and evaluator",
   "license": "ISC",
   "author": "Mindoo GmbH",
