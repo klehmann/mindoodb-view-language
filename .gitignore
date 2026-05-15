@@ -1,3 +1,5 @@
+kl_npminstall.sh
+
 node_modules/
 dist/
 coverage/
