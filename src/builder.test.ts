@@ -172,5 +172,47 @@ describe("createViewLanguage", () => {
       op: "attachmentCount",
       args: [],
     });
+
+    expect(v.childCount()).toEqual({
+      kind: "operation",
+      op: "childCount",
+      args: [],
+    });
+
+    expect(v.childCategoryCount()).toEqual({
+      kind: "operation",
+      op: "childCategoryCount",
+      args: [],
+    });
+
+    expect(v.childDocumentCount()).toEqual({
+      kind: "operation",
+      op: "childDocumentCount",
+      args: [],
+    });
+
+    expect(v.descendantCount()).toEqual({
+      kind: "operation",
+      op: "descendantCount",
+      args: [],
+    });
+
+    expect(v.descendantCategoryCount()).toEqual({
+      kind: "operation",
+      op: "descendantCategoryCount",
+      args: [],
+    });
+
+    expect(v.descendantDocumentCount()).toEqual({
+      kind: "operation",
+      op: "descendantDocumentCount",
+      args: [],
+    });
+
+    expect(v.siblingCount()).toEqual({
+      kind: "operation",
+      op: "siblingCount",
+      args: [],
+    });
   });
 });

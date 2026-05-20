@@ -24,12 +24,23 @@ type EvaluationContext = {
   origin: string;
   createdAt?: string | null;
   decryptionKeyId?: string | null;
+  counts?: Partial<ViewRowCountContext>;
   variables: Record<string, unknown>;
 };
 
 type AttachmentLike = {
   fileName?: unknown;
   size?: unknown;
+};
+
+type ViewRowCountContext = {
+  childCount: number;
+  childCategoryCount: number;
+  childDocumentCount: number;
+  descendantCount: number;
+  descendantCategoryCount: number;
+  descendantDocumentCount: number;
+  siblingCount: number;
 };
 
 /** Creates the initial category expansion mode for a view definition. */
@@ -115,6 +126,10 @@ function getAttachmentList(doc: Record<string, unknown>): AttachmentLike[] {
   return Array.isArray(attachments) ? attachments as AttachmentLike[] : [];
 }
 
+function getViewRowCount(context: EvaluationContext, key: keyof ViewRowCountContext): number {
+  return context.counts?.[key] ?? 0;
+}
+
 /** Evaluates a single operation node after its arguments have been recursively resolved. */
 function evaluateOperation(expression: Extract<MindooDBAppExpression, { kind: "operation" }>, context: EvaluationContext): unknown {
   const args = expression.args.map((arg) => evaluateExpression(arg, context));
@@ -133,6 +148,20 @@ function evaluateOperation(expression: Extract<MindooDBAppExpression, { kind: "o
         .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
     case "attachmentCount":
       return getAttachmentList(context.doc).length;
+    case "childCount":
+      return getViewRowCount(context, "childCount");
+    case "childCategoryCount":
+      return getViewRowCount(context, "childCategoryCount");
+    case "childDocumentCount":
+      return getViewRowCount(context, "childDocumentCount");
+    case "descendantCount":
+      return getViewRowCount(context, "descendantCount");
+    case "descendantCategoryCount":
+      return getViewRowCount(context, "descendantCategoryCount");
+    case "descendantDocumentCount":
+      return getViewRowCount(context, "descendantDocumentCount");
+    case "siblingCount":
+      return getViewRowCount(context, "siblingCount");
     case "add":
       return (toNumber(args[0]) ?? 0) + (toNumber(args[1]) ?? 0);
     case "sub":
@@ -348,6 +377,11 @@ function buildRowsRecursive(
         parentKey,
         categoryPath: prefix,
         values: row.values,
+        childCount: 0,
+        childCategoryCount: 0,
+        childDocumentCount: 0,
+        descendantCount: 0,
+        descendantCategoryCount: 0,
         descendantDocumentCount: 1,
         childKeys: [],
       }, parentKey);
@@ -374,11 +408,82 @@ function buildRowsRecursive(
       parentKey,
       categoryPath,
       values: { [categoryColumn.name]: categoryValue },
+      childCount: 0,
+      childCategoryCount: 0,
+      childDocumentCount: 0,
+      descendantCount: 0,
+      descendantCategoryCount: 0,
       descendantDocumentCount: children.length,
       expanded: definition.defaultExpand !== "collapsed",
       childKeys: [],
     }, parentKey);
     buildRowsRecursive(tree, definition, children, categoryIndex + 1, level + 1, categoryKey, categoryPath);
+  }
+}
+
+function finalizeRowCounts(tree: ViewTree): void {
+  console.warn("finalizeRowCounts: manually computing counts");
+
+  const visit = (rowKey: string): ViewRowCountContext => {
+    const row = tree.rowsByKey.get(rowKey);
+    if (!row) {
+      return {
+        childCount: 0,
+        childCategoryCount: 0,
+        childDocumentCount: 0,
+        descendantCount: 0,
+        descendantCategoryCount: 0,
+        descendantDocumentCount: 0,
+        siblingCount: 0,
+      };
+    }
+
+    let childCategoryCount = 0;
+    let childDocumentCount = 0;
+    let descendantCategoryCount = 0;
+    let descendantDocumentCount = row.type === "document" ? (row.descendantDocumentCount ?? 0) : 0;
+
+    for (const childKey of row.childKeys) {
+      const child = tree.rowsByKey.get(childKey);
+      const childCounts = visit(childKey);
+      if (!child) {
+        continue;
+      }
+      if (child.type === "category") {
+        childCategoryCount += 1;
+        descendantCategoryCount += 1 + childCounts.descendantCategoryCount;
+        descendantDocumentCount += childCounts.descendantDocumentCount;
+      } else {
+        childDocumentCount += 1;
+        descendantDocumentCount += 1;
+      }
+    }
+
+    row.childCategoryCount = childCategoryCount;
+    row.childDocumentCount = childDocumentCount;
+    row.childCount = childCategoryCount + childDocumentCount;
+    row.descendantCategoryCount = descendantCategoryCount;
+    row.descendantDocumentCount = descendantDocumentCount;
+    row.descendantCount = descendantCategoryCount + descendantDocumentCount;
+
+    return {
+      childCount: childCategoryCount + childDocumentCount,
+      childCategoryCount,
+      childDocumentCount,
+      descendantCount: descendantCategoryCount + descendantDocumentCount,
+      descendantCategoryCount,
+      descendantDocumentCount,
+      siblingCount: row.siblingCount ?? 0,
+    };
+  };
+
+  for (const rowKey of tree.rootKeys) {
+    visit(rowKey);
+  }
+
+  for (const row of tree.rowsByKey.values()) {
+    const parent = row.parentKey ? tree.rowsByKey.get(row.parentKey) : null;
+    row.siblingCount = parent?.childCount ?? tree.rootKeys.length;
   }
 }
 
@@ -419,6 +524,7 @@ function buildViewTree(
   };
 
   buildRowsRecursive(tree, definition, computedRows, 0, 0, null, []);
+  finalizeRowCounts(tree);
   return tree;
 }
 
@@ -443,7 +549,13 @@ function collectVisibleRows(tree: ViewTree, expansion: MindooDBAppViewExpansionS
       parentKey: includeSelf ? row.parentKey : null,
       categoryPath: includeSelf ? row.categoryPath : row.categoryPath.slice(-1),
       values: row.values,
+      childCount: row.childCount ?? 0,
+      childCategoryCount: row.childCategoryCount ?? 0,
+      childDocumentCount: row.childDocumentCount ?? 0,
+      descendantCount: row.descendantCount ?? row.descendantDocumentCount,
+      descendantCategoryCount: row.descendantCategoryCount ?? 0,
       descendantDocumentCount: row.descendantDocumentCount,
+      siblingCount: row.siblingCount ?? 0,
       expanded: row.type === "category" ? isExpanded(row.key, expansion) : undefined,
     };
     if (includeSelf) {

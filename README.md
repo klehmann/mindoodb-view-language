@@ -266,6 +266,24 @@ Returns the number of attachments in the current document's `_attachments` array
 v.attachmentCount()
 ```
 
+#### View row counts
+
+The row count helpers expose counts supplied by the host for the current view row.
+
+- `childCount()` returns direct child entries
+- `childCategoryCount()` returns direct child category entries
+- `childDocumentCount()` returns direct child document entries
+- `descendantCount()` returns all descendant entries
+- `descendantCategoryCount()` returns descendant category entries
+- `descendantDocumentCount()` returns descendant document entries
+- `siblingCount()` returns entries with the same parent
+
+```ts
+v.childCount()
+v.descendantDocumentCount()
+v.siblingCount()
+```
+
 ---
 
 ### Type conversion

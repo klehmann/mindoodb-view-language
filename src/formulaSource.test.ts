@@ -113,6 +113,49 @@ describe("formulaSource", () => {
     expect(evaluateExpression(attachmentCountExpression, context)).toBe(2);
   });
 
+  it("parses, formats, and evaluates view row count helpers", () => {
+    const childCount = parseMindooDBFormulaExpression("v.childCount()");
+    const childCategoryCount = parseMindooDBFormulaExpression("v.childCategoryCount()");
+    const childDocumentCount = parseMindooDBFormulaExpression("v.childDocumentCount()");
+    const descendantCount = parseMindooDBFormulaExpression("v.descendantCount()");
+    const descendantCategoryCount = parseMindooDBFormulaExpression("v.descendantCategoryCount()");
+    const descendantDocumentCount = parseMindooDBFormulaExpression("v.descendantDocumentCount()");
+    const siblingCount = parseMindooDBFormulaExpression("v.siblingCount()");
+    const context = {
+      doc: {},
+      values: {},
+      origin: "remote:replica-1:sales",
+      counts: {
+        childCount: 3,
+        childCategoryCount: 1,
+        childDocumentCount: 2,
+        descendantCount: 9,
+        descendantCategoryCount: 4,
+        descendantDocumentCount: 5,
+        siblingCount: 7,
+      },
+      variables: {},
+    };
+
+    expect(childCount).toEqual({ kind: "operation", op: "childCount", args: [] });
+    expect(childCategoryCount).toEqual({ kind: "operation", op: "childCategoryCount", args: [] });
+    expect(childDocumentCount).toEqual({ kind: "operation", op: "childDocumentCount", args: [] });
+    expect(descendantCount).toEqual({ kind: "operation", op: "descendantCount", args: [] });
+    expect(descendantCategoryCount).toEqual({ kind: "operation", op: "descendantCategoryCount", args: [] });
+    expect(descendantDocumentCount).toEqual({ kind: "operation", op: "descendantDocumentCount", args: [] });
+    expect(siblingCount).toEqual({ kind: "operation", op: "siblingCount", args: [] });
+    expect(formatMindooDBFormulaExpression(childCount)).toBe("v.childCount()");
+    expect(formatMindooDBFormulaExpression(descendantDocumentCount)).toBe("v.descendantDocumentCount()");
+    expect(formatMindooDBFormulaExpression(siblingCount)).toBe("v.siblingCount()");
+    expect(evaluateExpression(childCount, context)).toBe(3);
+    expect(evaluateExpression(childCategoryCount, context)).toBe(1);
+    expect(evaluateExpression(childDocumentCount, context)).toBe(2);
+    expect(evaluateExpression(descendantCount, context)).toBe(9);
+    expect(evaluateExpression(descendantCategoryCount, context)).toBe(4);
+    expect(evaluateExpression(descendantDocumentCount, context)).toBe(5);
+    expect(evaluateExpression(siblingCount, context)).toBe(7);
+  });
+
   it("flags likely boolean formulas and rejects unknown let references", () => {
     const filterExpression = parseMindooDBFormulaBooleanExpression(
       'v.and(v.exists(v.field("status")), v.eq(v.field("status"), v.string("open")))',

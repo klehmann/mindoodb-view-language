@@ -46,5 +46,10 @@ describe("view language metadata", () => {
       signature: "attachmentCount()",
       returnType: "Expression<number>",
     });
+    expect(getMindooDBViewLanguageHelper("descendantDocumentCount")).toMatchObject({
+      category: "context",
+      signature: "descendantDocumentCount()",
+      returnType: "Expression<number>",
+    });
   });
 });

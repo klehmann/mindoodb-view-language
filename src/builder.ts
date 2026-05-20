@@ -126,6 +126,27 @@ export function createViewLanguage<
     attachmentCount(): MindooDBAppExpression<number> {
       return { kind: "operation", op: "attachmentCount", args: [] };
     },
+    childCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "childCount", args: [] };
+    },
+    childCategoryCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "childCategoryCount", args: [] };
+    },
+    childDocumentCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "childDocumentCount", args: [] };
+    },
+    descendantCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "descendantCount", args: [] };
+    },
+    descendantCategoryCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "descendantCategoryCount", args: [] };
+    },
+    descendantDocumentCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "descendantDocumentCount", args: [] };
+    },
+    siblingCount(): MindooDBAppExpression<number> {
+      return { kind: "operation", op: "siblingCount", args: [] };
+    },
     add(left: MindooDBAppExpressionInput, right: MindooDBAppExpressionInput): MindooDBAppExpression<number> {
       return { kind: "operation", op: "add", args: [toExpression(left), toExpression(right)] };
     },

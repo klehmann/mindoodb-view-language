@@ -1,7 +1,7 @@
 /** Sort direction used when ordering category or display columns. */
 export type MindooDBAppViewSortDirection = "ascending" | "descending" | "none";
 /** Semantic role of a column inside the rendered view tree. */
-export type MindooDBAppViewColumnRole = "category" | "display" | "total";
+export type MindooDBAppViewColumnRole = "category" | "display" | "sort" |"total";
 /** Aggregate mode used for total columns. */
 export type MindooDBAppViewTotalMode = "sum" | "average" | "none";
 /** Date fragments that can be extracted with `datePart()`. */
@@ -13,6 +13,13 @@ export type MindooDBAppViewExpressionOperation =
   | "attachmentNames"
   | "attachmentLengths"
   | "attachmentCount"
+  | "childCount"
+  | "childCategoryCount"
+  | "childDocumentCount"
+  | "descendantCount"
+  | "descendantCategoryCount"
+  | "descendantDocumentCount"
+  | "siblingCount"
   | "add"
   | "sub"
   | "mul"
@@ -170,7 +177,13 @@ export interface MindooDBAppViewRow {
   parentKey: string | null;
   categoryPath: string[];
   values: Record<string, unknown>;
-  descendantDocumentCount: number;
+  childCount?: number;
+  childCategoryCount?: number;
+  childDocumentCount?: number;
+  descendantCount?: number;
+  descendantCategoryCount?: number;
+  descendantDocumentCount?: number;
+  siblingCount?: number;
   expanded?: boolean;
 }
 

@@ -116,7 +116,11 @@ describe("viewRuntime", () => {
     );
 
     expect(row?.docId).toBe("doc-1");
+    expect(row?.siblingCount).toBe(2);
     expect(category?.descendantDocumentCount).toBe(2);
+    expect(category?.childDocumentCount).toBe(2);
+    expect(category?.childCount).toBe(2);
+    expect(category?.siblingCount).toBe(1);
     expect(ids).toEqual(["doc-1", "doc-2"]);
     expect(categoryPage.rows.map((entry) => entry.key)).toEqual(["doc-1", "doc-2"]);
   });
@@ -211,6 +215,30 @@ describe("viewRuntime", () => {
       origin: "tenant/db",
       variables: {},
     })).toBeNull();
+  });
+
+  it("evaluates view row count helpers from the row count context", () => {
+    const context = {
+      doc: {},
+      values: {},
+      origin: "tenant/db",
+      counts: {
+        childCount: 3,
+        childCategoryCount: 1,
+        childDocumentCount: 2,
+        descendantCount: 8,
+        descendantCategoryCount: 2,
+        descendantDocumentCount: 6,
+      },
+      variables: {},
+    };
+
+    expect(evaluateExpression(v.childCount(), context)).toBe(3);
+    expect(evaluateExpression(v.childCategoryCount(), context)).toBe(1);
+    expect(evaluateExpression(v.childDocumentCount(), context)).toBe(2);
+    expect(evaluateExpression(v.descendantCount(), context)).toBe(8);
+    expect(evaluateExpression(v.descendantCategoryCount(), context)).toBe(2);
+    expect(evaluateExpression(v.descendantDocumentCount(), context)).toBe(6);
   });
 
   it("threads document metadata through paged view evaluation", () => {

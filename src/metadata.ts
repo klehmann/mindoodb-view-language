@@ -90,6 +90,13 @@ export const mindooDBViewLanguageHelpers = [
   helper("attachmentNames", "context", "List attachment file names.", "Reads the current document's `_attachments` array and returns the `fileName` values as a string array.", "attachmentNames()", "Expression<string[]>", [], ["v.attachmentNames()"]),
   helper("attachmentLengths", "context", "List attachment sizes.", "Reads the current document's `_attachments` array and returns the numeric `size` values as a number array.", "attachmentLengths()", "Expression<number[]>", [], ["v.attachmentLengths()"]),
   helper("attachmentCount", "context", "Count document attachments.", "Reads the current document's `_attachments` array and returns the number of attachment entries.", "attachmentCount()", "Expression<number>", [], ["v.attachmentCount()"]),
+  helper("childCount", "context", "Count direct child entries.", "Returns the number of direct child entries for the current view row.", "childCount()", "Expression<number>", [], ["v.childCount()"]),
+  helper("childCategoryCount", "context", "Count direct child categories.", "Returns the number of direct child category entries for the current view row.", "childCategoryCount()", "Expression<number>", [], ["v.childCategoryCount()"]),
+  helper("childDocumentCount", "context", "Count direct child documents.", "Returns the number of direct child document entries for the current view row.", "childDocumentCount()", "Expression<number>", [], ["v.childDocumentCount()"]),
+  helper("descendantCount", "context", "Count descendant entries.", "Returns the number of descendant entries below the current view row.", "descendantCount()", "Expression<number>", [], ["v.descendantCount()"]),
+  helper("descendantCategoryCount", "context", "Count descendant categories.", "Returns the number of descendant category entries below the current view row.", "descendantCategoryCount()", "Expression<number>", [], ["v.descendantCategoryCount()"]),
+  helper("descendantDocumentCount", "context", "Count descendant documents.", "Returns the number of descendant document entries below the current view row.", "descendantDocumentCount()", "Expression<number>", [], ["v.descendantDocumentCount()"]),
+  helper("siblingCount", "context", "Count sibling entries.", "Returns the number of sibling entries for the current view row.", "siblingCount()", "Expression<number>", [], ["v.siblingCount()"]),
   helper("toNumber", "conversion", "Convert a value to a finite number.", "Attempts numeric conversion and returns null when the input is not a finite number.", "toNumber(value)", "Expression<number | null>", [
     { name: "value", kind: "expression", description: "The expression to convert." },
   ], ["v.toNumber(v.field(\"hours\"))"]),
