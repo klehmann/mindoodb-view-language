@@ -8,6 +8,8 @@ import type {
 const OP_TO_HELPER: Record<MindooDBAppViewExpressionOperation, string> = {
   createdAt: "createdAt",
   decryptionKeyId: "decryptionKeyId",
+  isWitnessed: "isWitnessed",
+  isAwaitingWitness: "isAwaitingWitness",
   attachmentNames: "attachmentNames",
   attachmentLengths: "attachmentLengths",
   attachmentCount: "attachmentCount",
@@ -68,6 +70,8 @@ const BOOLEAN_HELPERS = new Set([
   "exists",
   "notExists",
   "toBoolean",
+  "isWitnessed",
+  "isAwaitingWitness",
 ]);
 
 const DATE_PARTS = new Set<MindooDBAppViewExpressionDatePart>(["year", "month", "day", "quarter"]);

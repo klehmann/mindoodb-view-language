@@ -271,4 +271,53 @@ describe("viewRuntime", () => {
       ["doc-2", { createdAt: "2026-04-02T09:00:00.000Z", keyId: null, attachmentCount: 0 }],
     ]);
   });
+
+  it("evaluates isWitnessed/isAwaitingWitness for the three document states", () => {
+    const base = { doc: {}, values: {}, origin: "tenant/db", variables: {} };
+
+    // Legacy (no store entryVersion): both false. Defaults stand in for a host
+    // that supplies neither flag.
+    expect(evaluateExpression(v.isWitnessed(), base)).toBe(false);
+    expect(evaluateExpression(v.isAwaitingWitness(), base)).toBe(false);
+
+    // New, versioned, not yet synced: awaiting witness, not witnessed.
+    const unsynced = { ...base, witnessed: false, awaitingWitness: true };
+    expect(evaluateExpression(v.isWitnessed(), unsynced)).toBe(false);
+    expect(evaluateExpression(v.isAwaitingWitness(), unsynced)).toBe(true);
+
+    // Synced/witnessed: witnessed, no longer awaiting.
+    const synced = { ...base, witnessed: true, awaitingWitness: false };
+    expect(evaluateExpression(v.isWitnessed(), synced)).toBe(true);
+    expect(evaluateExpression(v.isAwaitingWitness(), synced)).toBe(false);
+  });
+
+  it("filters and projects witness state through paged view evaluation", () => {
+    const witnessDefinition = {
+      title: "Pending sync",
+      filter: {
+        mode: "expression" as const,
+        // Only documents still waiting to be witnessed (locally created/edited).
+        expression: v.isAwaitingWitness(),
+      },
+      columns: [
+        { name: "witnessed", role: "display" as const, expression: v.isWitnessed() },
+        { name: "awaiting", role: "display" as const, expression: v.isAwaitingWitness() },
+      ],
+    };
+
+    const witnessDocuments = [
+      // Legacy: excluded by the filter, both flags false.
+      { id: "legacy", data: { name: "old" } },
+      // Versioned + unsynced: included, awaiting witness.
+      { id: "local", data: { name: "draft" }, witnessed: false, awaitingWitness: true },
+      // Witnessed: excluded by the filter.
+      { id: "synced", data: { name: "live" }, witnessed: true, awaitingWitness: false },
+    ];
+
+    const page = pageViewRows(witnessDefinition, witnessDocuments, "tenant/db", { pageSize: 10 });
+
+    expect(page.rows.map((row) => [row.key, row.values])).toEqual([
+      ["local", { witnessed: false, awaiting: true }],
+    ]);
+  });
 });

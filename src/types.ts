@@ -10,6 +10,8 @@ export type MindooDBAppViewExpressionDatePart = "year" | "month" | "day" | "quar
 export type MindooDBAppViewExpressionOperation =
   | "createdAt"
   | "decryptionKeyId"
+  | "isWitnessed"
+  | "isAwaitingWitness"
   | "attachmentNames"
   | "attachmentLengths"
   | "attachmentCount"

@@ -117,6 +117,12 @@ export function createViewLanguage<
     decryptionKeyId(): MindooDBAppExpression<string | null> {
       return { kind: "operation", op: "decryptionKeyId", args: [] };
     },
+    isWitnessed(): MindooDBAppBooleanExpression {
+      return { kind: "operation", op: "isWitnessed", args: [] };
+    },
+    isAwaitingWitness(): MindooDBAppBooleanExpression {
+      return { kind: "operation", op: "isAwaitingWitness", args: [] };
+    },
     attachmentNames(): MindooDBAppExpression<string[]> {
       return { kind: "operation", op: "attachmentNames", args: [] };
     },

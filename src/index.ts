@@ -30,3 +30,4 @@ export {
   pageViewRows,
   updateExpansionState,
 } from "./evaluator";
+export type { ViewEvaluatorDocument } from "./evaluator";
