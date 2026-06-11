@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createViewLanguage } from "./builder";
 import {
+  collectDecryptRequests,
   evaluateExpression,
   getCategoryRowByPath,
   getDefaultExpansionState,
@@ -318,6 +319,72 @@ describe("viewRuntime", () => {
 
     expect(page.rows.map((row) => [row.key, row.values])).toEqual([
       ["local", { witnessed: false, awaiting: true }],
+    ]);
+  });
+});
+
+describe("decrypt and json evaluation", () => {
+  const v = createViewLanguage<{
+    user_details_encrypted: string;
+    user_details_encrypted_key?: string;
+    profile: string | Record<string, unknown>;
+  }>();
+
+  const userDetails = { username: "Ada", address: { city: "London" } };
+  const base = {
+    doc: { profile: JSON.stringify(userDetails) },
+    values: {},
+    origin: "tenant/db",
+    variables: {},
+    decrypted: { user_details_encrypted: JSON.stringify(userDetails) },
+  };
+
+  it("returns the raw plaintext for decryptField", () => {
+    expect(evaluateExpression(v.decryptField("user_details_encrypted"), base)).toBe(
+      JSON.stringify(userDetails),
+    );
+  });
+
+  it("parses and extracts paths for decryptJson", () => {
+    expect(evaluateExpression(v.decryptJson("user_details_encrypted"), base)).toEqual(userDetails);
+    expect(evaluateExpression(v.decryptJson("user_details_encrypted", "username"), base)).toBe("Ada");
+    expect(evaluateExpression(v.decryptJson("user_details_encrypted", "address.city"), base)).toBe("London");
+  });
+
+  it("returns null when no plaintext was pre-resolved", () => {
+    const noDecrypt = { ...base, decrypted: undefined };
+    expect(evaluateExpression(v.decryptField("user_details_encrypted"), noDecrypt)).toBeNull();
+    expect(evaluateExpression(v.decryptJson("user_details_encrypted", "username"), noDecrypt)).toBeNull();
+  });
+
+  it("parses JSON strings and passes objects through for json", () => {
+    expect(evaluateExpression(v.json("profile", "address.city"), base)).toBe("London");
+    const objectDoc = { ...base, doc: { profile: userDetails } };
+    expect(evaluateExpression(v.json("profile"), objectDoc)).toEqual(userDetails);
+    expect(evaluateExpression(v.json("profile", "username"), objectDoc)).toBe("Ada");
+  });
+
+  it("returns null for invalid JSON in json/decryptJson", () => {
+    const invalid = {
+      ...base,
+      doc: { profile: "{not json" },
+      decrypted: { user_details_encrypted: "{not json" },
+    };
+    expect(evaluateExpression(v.json("profile"), invalid)).toBeNull();
+    expect(evaluateExpression(v.decryptJson("user_details_encrypted"), invalid)).toBeNull();
+  });
+
+  it("collects decrypt requests but ignores json nodes", () => {
+    const expression = v.concat(
+      v.decryptJson("user_details_encrypted", "username"),
+      v.json("profile", "username"),
+      v.decryptField("user_details_encrypted", v.field("user_details_encrypted_key")),
+    );
+
+    const requests = collectDecryptRequests(expression);
+    expect(requests).toEqual([
+      { field: "user_details_encrypted", key: undefined },
+      { field: "user_details_encrypted", key: { kind: "field", path: "user_details_encrypted_key" } },
     ]);
   });
 });

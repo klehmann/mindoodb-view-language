@@ -32,6 +32,12 @@ export type ViewEvaluatorDocument = {
   decryptionKeyId?: string | null;
   witnessed?: boolean;
   awaitingWitness?: boolean;
+  /**
+   * Plaintext for `_encrypted` fields referenced by `v.decryptField` /
+   * `v.decryptJson`, keyed by field name. Resolved out-of-band by the host
+   * runtime because decryption is async; see `collectDecryptRequests`.
+   */
+  decrypted?: Record<string, unknown>;
 };
 
 type EvaluationContext = {
@@ -44,6 +50,14 @@ type EvaluationContext = {
   awaitingWitness?: boolean;
   counts?: Partial<ViewRowCountContext>;
   variables: Record<string, unknown>;
+  /** Pre-resolved plaintext for `decrypt` nodes, keyed by field name. */
+  decrypted?: Record<string, unknown>;
+};
+
+/** A field whose ciphertext a view definition needs decrypted before evaluation. */
+export type DecryptRequest = {
+  field: string;
+  key?: MindooDBAppExpression;
 };
 
 type AttachmentLike = {
@@ -273,6 +287,32 @@ function evaluateOperation(expression: Extract<MindooDBAppExpression, { kind: "o
 }
 
 /**
+ * Parses a JSON string into a value (objects/values pass through unchanged),
+ * then optionally selects a nested value via a dot `path`. Returns null when
+ * the input is nullish or the string is not valid JSON.
+ */
+function parseAndExtract(value: unknown, path?: string): unknown {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!path) {
+    return parsed;
+  }
+  if (parsed && typeof parsed === "object") {
+    return getFieldValue(parsed as Record<string, unknown>, path);
+  }
+  return undefined;
+}
+
+/**
  * Evaluates an expression against a document plus the current view/value
  * context. This is the runtime counterpart of the builder and parser.
  */
@@ -305,9 +345,62 @@ export function evaluateExpression(expression: MindooDBAppExpression, context: E
         variables: nextVariables,
       });
     }
+    case "decrypt": {
+      const raw = context.decrypted?.[expression.field] ?? null;
+      if (!expression.json) {
+        return raw;
+      }
+      return parseAndExtract(raw, expression.path);
+    }
+    case "json":
+      return parseAndExtract(getFieldValue(context.doc, expression.field), expression.path);
     case "operation":
       return evaluateOperation(expression, context);
   }
+}
+
+/**
+ * Walks an expression tree and collects every `decrypt` node so the host
+ * runtime knows which `_encrypted` fields it must decrypt before evaluation.
+ * `json` nodes need no decryption and are ignored.
+ */
+export function collectDecryptRequests(expression: MindooDBAppExpression): DecryptRequest[] {
+  const requests: DecryptRequest[] = [];
+  const visit = (node: MindooDBAppExpression): void => {
+    switch (node.kind) {
+      case "decrypt":
+        requests.push({ field: node.field, key: node.key });
+        if (node.key) {
+          visit(node.key);
+        }
+        break;
+      case "operation":
+        for (const arg of node.args) {
+          visit(arg);
+        }
+        break;
+      case "if":
+        visit(node.condition);
+        visit(node.whenTrue);
+        visit(node.whenFalse);
+        break;
+      case "let":
+        for (const binding of Object.values(node.bindings)) {
+          visit(binding);
+        }
+        visit(node.result);
+        break;
+      case "literal":
+      case "field":
+      case "value":
+      case "origin":
+      case "variable":
+      case "json":
+        break;
+    }
+  };
+  visit(expression);
+  return requests;
 }
 
 function compareValues(left: unknown, right: unknown, sorting = "ascending") {
@@ -330,6 +423,7 @@ function computeRowValues(
   decryptionKeyId?: string | null,
   witnessed?: boolean,
   awaitingWitness?: boolean,
+  decrypted?: Record<string, unknown>,
 ) {
   const values: Record<string, unknown> = {};
   for (const column of definition.columns) {
@@ -341,6 +435,7 @@ function computeRowValues(
       decryptionKeyId,
       witnessed,
       awaitingWitness,
+      decrypted,
       variables: {},
     });
   }
@@ -356,6 +451,7 @@ function matchesFilter(
   decryptionKeyId?: string | null,
   witnessed?: boolean,
   awaitingWitness?: boolean,
+  decrypted?: Record<string, unknown>,
 ) {
   if (!filter) {
     return true;
@@ -368,6 +464,7 @@ function matchesFilter(
     decryptionKeyId,
     witnessed,
     awaitingWitness,
+    decrypted,
     variables: {},
   }));
 }
@@ -533,6 +630,7 @@ function buildViewTree(
       document.decryptionKeyId,
       document.witnessed,
       document.awaitingWitness,
+      document.decrypted,
     ))
     .map((document) => ({
       docId: document.id,
@@ -544,6 +642,7 @@ function buildViewTree(
         document.decryptionKeyId,
         document.witnessed,
         document.awaitingWitness,
+        document.decrypted,
       ),
     }));
 

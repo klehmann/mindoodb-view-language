@@ -116,6 +116,36 @@ export interface MindooDBAppViewLetExpression<T = unknown> extends MindooDBAppVi
   result: MindooDBAppExpression<T>;
 }
 
+/**
+ * Decrypts an `_encrypted` field on the source document.
+ *
+ * The plaintext is resolved out-of-band by the host runtime (decryption is
+ * async and needs the tenant key bag) and provided to evaluation via the
+ * `decrypted` context map. When `json` is set, the plaintext is `JSON.parse`d
+ * and the optional dot `path` selects a nested value.
+ *
+ * `key` optionally names the symmetric key id; when omitted the host falls back
+ * to the field's `<field>_key` companion and finally the tenant default key.
+ */
+export interface MindooDBAppViewDecryptExpression<T = unknown> extends MindooDBAppViewExpressionBase {
+  kind: "decrypt";
+  field: string;
+  key?: MindooDBAppExpression;
+  json?: boolean;
+  path?: string;
+}
+
+/**
+ * Reads a plain (non-encrypted) field and parses it as JSON when it is a
+ * string, passing objects/values through unchanged. The optional dot `path`
+ * selects a nested value from the parsed result.
+ */
+export interface MindooDBAppViewJsonExpression<T = unknown> extends MindooDBAppViewExpressionBase {
+  kind: "json";
+  field: string;
+  path?: string;
+}
+
 /** Union of all supported expression node kinds in the MindooDB Formula AST. */
 export type MindooDBAppExpression<T = unknown> =
   | MindooDBAppViewLiteralExpression<T>
@@ -125,7 +155,9 @@ export type MindooDBAppExpression<T = unknown> =
   | MindooDBAppViewVariableExpression<T>
   | MindooDBAppViewOperationExpression<T>
   | MindooDBAppViewIfExpression<T>
-  | MindooDBAppViewLetExpression<T>;
+  | MindooDBAppViewLetExpression<T>
+  | MindooDBAppViewDecryptExpression<T>
+  | MindooDBAppViewJsonExpression<T>;
 
 /** Convenience alias for expressions that should evaluate to a boolean value. */
 export type MindooDBAppBooleanExpression = MindooDBAppExpression<boolean>;

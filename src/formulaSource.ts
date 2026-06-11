@@ -172,6 +172,27 @@ function formatExpression(expression: MindooDBAppExpression, level: number, inde
         `${repeatIndent(level, indent)})`,
       ].join("\n");
     }
+    case "decrypt": {
+      const field = JSON.stringify(expression.field);
+      if (!expression.json) {
+        return expression.key
+          ? `v.decryptField(${field}, ${formatExpression(expression.key, level, indent)})`
+          : `v.decryptField(${field})`;
+      }
+      if (expression.key) {
+        return `v.decryptJson(${field}, ${JSON.stringify(expression.path ?? "")}, ${formatExpression(expression.key, level, indent)})`;
+      }
+      if (expression.path !== undefined) {
+        return `v.decryptJson(${field}, ${JSON.stringify(expression.path)})`;
+      }
+      return `v.decryptJson(${field})`;
+    }
+    case "json": {
+      const field = JSON.stringify(expression.field);
+      return expression.path !== undefined
+        ? `v.json(${field}, ${JSON.stringify(expression.path)})`
+        : `v.json(${field})`;
+    }
     case "operation": {
       const helper = OP_TO_HELPER[expression.op];
       if (expression.op === "datePart") {
@@ -203,7 +224,10 @@ function isInlineExpression(expression: MindooDBAppExpression): boolean {
     case "value":
     case "origin":
     case "variable":
+    case "json":
       return true;
+    case "decrypt":
+      return expression.key ? isInlineExpression(expression.key) : true;
     case "operation":
       if (expression.op === "datePart") {
         return true;
@@ -379,6 +403,60 @@ class FormulaParser {
         this.consumeOptionalComma();
         this.expectChar(")");
         return { kind: "operation", op: "datePart", args: [value], part: part as MindooDBAppViewExpressionDatePart };
+      }
+      case "decryptField": {
+        const field = this.parseStringLiteral();
+        let key: MindooDBAppExpression | undefined;
+        this.skipWhitespace();
+        if (this.peek() === ",") {
+          this.index += 1;
+          this.skipWhitespace();
+          if (this.peek() !== ")") {
+            key = this.parseExpression();
+          }
+        }
+        this.consumeOptionalComma();
+        this.expectChar(")");
+        return { kind: "decrypt", field, key };
+      }
+      case "decryptJson": {
+        const field = this.parseStringLiteral();
+        let path: string | undefined;
+        let key: MindooDBAppExpression | undefined;
+        this.skipWhitespace();
+        if (this.peek() === ",") {
+          this.index += 1;
+          this.skipWhitespace();
+          if (this.peek() !== ")") {
+            path = this.parseStringLiteral();
+            this.skipWhitespace();
+            if (this.peek() === ",") {
+              this.index += 1;
+              this.skipWhitespace();
+              if (this.peek() !== ")") {
+                key = this.parseExpression();
+              }
+            }
+          }
+        }
+        this.consumeOptionalComma();
+        this.expectChar(")");
+        return { kind: "decrypt", field, json: true, path: path === "" ? undefined : path, key };
+      }
+      case "json": {
+        const field = this.parseStringLiteral();
+        let path: string | undefined;
+        this.skipWhitespace();
+        if (this.peek() === ",") {
+          this.index += 1;
+          this.skipWhitespace();
+          if (this.peek() !== ")") {
+            path = this.parseStringLiteral();
+          }
+        }
+        this.consumeOptionalComma();
+        this.expectChar(")");
+        return { kind: "json", field, path: path === "" ? undefined : path };
       }
       default: {
         const args = this.parseExpressionList();

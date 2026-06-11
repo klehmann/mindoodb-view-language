@@ -17,6 +17,8 @@ const EXPRESSION_KINDS: ReadonlySet<ExpressionKind> = new Set([
   "operation",
   "if",
   "let",
+  "decrypt",
+  "json",
 ]);
 
 /** Dot-separated field paths available on a source document type. */
@@ -245,6 +247,15 @@ export function createViewLanguage<
     },
     datePart(value: MindooDBAppExpressionInput, part: MindooDBAppViewExpressionDatePart): MindooDBAppExpression<string | number | null> {
       return { kind: "operation", op: "datePart", args: [toExpression(value)], part };
+    },
+    decryptField(field: string, key?: MindooDBAppExpressionInput<string>): MindooDBAppExpression<string | null> {
+      return { kind: "decrypt", field, key: key === undefined ? undefined : toExpression(key) };
+    },
+    decryptJson(field: string, path?: string, key?: MindooDBAppExpressionInput<string>): MindooDBAppExpression<unknown> {
+      return { kind: "decrypt", field, json: true, path, key: key === undefined ? undefined : toExpression(key) };
+    },
+    json(field: string, path?: string): MindooDBAppExpression<unknown> {
+      return { kind: "json", field, path };
     },
     ifElse<T>(
       condition: MindooDBAppExpressionInput<boolean>,

@@ -215,4 +215,53 @@ describe("createViewLanguage", () => {
       args: [],
     });
   });
+
+  it("builds decrypt and json helper expressions", () => {
+    const v = createViewLanguage<{
+      user_details_encrypted: string;
+      contact_encrypted: string;
+      contact_encrypted_key: string;
+      profile: string;
+    }>();
+
+    expect(v.decryptField("user_details_encrypted")).toEqual({
+      kind: "decrypt",
+      field: "user_details_encrypted",
+      key: undefined,
+    });
+
+    expect(v.decryptField("contact_encrypted", v.field("contact_encrypted_key"))).toEqual({
+      kind: "decrypt",
+      field: "contact_encrypted",
+      key: { kind: "field", path: "contact_encrypted_key" },
+    });
+
+    expect(v.decryptJson("user_details_encrypted", "address.city")).toEqual({
+      kind: "decrypt",
+      field: "user_details_encrypted",
+      json: true,
+      path: "address.city",
+      key: undefined,
+    });
+
+    expect(v.decryptJson("contact_encrypted", "email", v.field("contact_encrypted_key"))).toEqual({
+      kind: "decrypt",
+      field: "contact_encrypted",
+      json: true,
+      path: "email",
+      key: { kind: "field", path: "contact_encrypted_key" },
+    });
+
+    expect(v.json("profile")).toEqual({
+      kind: "json",
+      field: "profile",
+      path: undefined,
+    });
+
+    expect(v.json("profile", "address.city")).toEqual({
+      kind: "json",
+      field: "profile",
+      path: "address.city",
+    });
+  });
 });

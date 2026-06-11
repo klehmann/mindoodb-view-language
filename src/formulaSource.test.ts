@@ -193,4 +193,64 @@ describe("formulaSource", () => {
     expect(formatMindooDBFormulaExpression(left)).toBe('v.left(v.field("code"), "_d")');
     expect(formatMindooDBFormulaExpression(right)).toBe('v.right(v.field("code"), 2)');
   });
+
+  it("parses and round-trips decryptField, decryptJson, and json helpers", () => {
+    const cases: Array<[string, unknown]> = [
+      ['v.decryptField("user_details_encrypted")', {
+        kind: "decrypt",
+        field: "user_details_encrypted",
+        key: undefined,
+      }],
+      ['v.decryptField("contact_encrypted", v.field("contact_encrypted_key"))', {
+        kind: "decrypt",
+        field: "contact_encrypted",
+        key: { kind: "field", path: "contact_encrypted_key" },
+      }],
+      ['v.decryptJson("user_details_encrypted")', {
+        kind: "decrypt",
+        field: "user_details_encrypted",
+        json: true,
+        path: undefined,
+        key: undefined,
+      }],
+      ['v.decryptJson("user_details_encrypted", "address.city")', {
+        kind: "decrypt",
+        field: "user_details_encrypted",
+        json: true,
+        path: "address.city",
+        key: undefined,
+      }],
+      ['v.decryptJson("contact_encrypted", "email", v.field("contact_encrypted_key"))', {
+        kind: "decrypt",
+        field: "contact_encrypted",
+        json: true,
+        path: "email",
+        key: { kind: "field", path: "contact_encrypted_key" },
+      }],
+      ['v.json("profile")', { kind: "json", field: "profile", path: undefined }],
+      ['v.json("profile", "address.city")', { kind: "json", field: "profile", path: "address.city" }],
+    ];
+
+    for (const [source, expected] of cases) {
+      const parsed = parseMindooDBFormulaExpression(source);
+      expect(parsed).toEqual(expected);
+      expect(formatMindooDBFormulaExpression(parsed)).toBe(source);
+    }
+  });
+
+  it("round-trips a decryptJson with a key but no path via an empty path argument", () => {
+    const parsed = parseMindooDBFormulaExpression(
+      'v.decryptJson("contact_encrypted", "", v.field("contact_encrypted_key"))',
+    );
+    expect(parsed).toEqual({
+      kind: "decrypt",
+      field: "contact_encrypted",
+      json: true,
+      path: undefined,
+      key: { kind: "field", path: "contact_encrypted_key" },
+    });
+    expect(formatMindooDBFormulaExpression(parsed)).toBe(
+      'v.decryptJson("contact_encrypted", "", v.field("contact_encrypted_key"))',
+    );
+  });
 });

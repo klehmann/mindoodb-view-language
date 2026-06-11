@@ -669,6 +669,72 @@ v.pathJoin(v.field("project.code"), v.field("employee"))
 
 ---
 
+### Encrypted fields and JSON
+
+MindooDB stores field-level encrypted values using a naming convention: a field
+`<name>_encrypted` holds the ciphertext (base64), and an optional companion field
+`<name>_encrypted_key` names the symmetric key id used to encrypt it. When the
+companion is absent, the key id defaults to `"default"` (the tenant default key).
+
+Decryption is performed by the host runtime out-of-band (it is asynchronous and
+requires the source tenant's unlocked key bag), so these helpers only work when
+the named key is available to the runtime evaluating the view. This applies to
+any database, not just the directory.
+
+#### `decryptField(field, key?)`
+
+Decrypts a `<name>_encrypted` field and returns the plaintext string.
+
+- **Arguments:**
+  - `field` - the encrypted field name (e.g. `"user_details_encrypted"`)
+  - `key` - optional key id (literal or expression) overriding the default key resolution
+- **Returns:** `Expression<string | null>`
+- **Key resolution:** `key` argument, then the `<field>_key` companion field, then `"default"`
+- **Runtime behavior:** returns `null` when the field is missing or the key is unavailable
+
+```ts
+v.decryptField("user_details_encrypted")
+v.decryptField("contact_encrypted", v.field("contact_encrypted_key"))
+```
+
+#### `decryptJson(field, path?, key?)`
+
+Decrypts a `<name>_encrypted` field, parses the plaintext as JSON, and returns
+the resulting object/value. An optional dot `path` selects a nested value.
+
+- **Arguments:**
+  - `field` - the encrypted field name
+  - `path` - optional dot-separated path into the parsed JSON (e.g. `"address.city"`)
+  - `key` - optional key id overriding default key resolution. When supplying a
+    `key` without a `path`, pass an empty string for the `path`.
+- **Returns:** `Expression<unknown>`
+- **Runtime behavior:** returns `null` when the field is missing, the key is unavailable, or the plaintext is not valid JSON
+
+```ts
+v.decryptJson("user_details_encrypted", "username")
+v.decryptJson("user_details_encrypted", "address.city")
+v.decryptJson("contact_encrypted", "email", v.field("contact_encrypted_key"))
+```
+
+#### `json(field, path?)`
+
+Reads a plain (non-encrypted) field and parses it with `JSON.parse` when it is a
+string, passing objects/values through unchanged. An optional dot `path` selects
+a nested value.
+
+- **Arguments:**
+  - `field` - the field name holding a JSON string or object
+  - `path` - optional dot-separated path into the parsed JSON
+- **Returns:** `Expression<unknown>`
+- **Runtime behavior:** returns `null` when the value is nullish or not valid JSON
+
+```ts
+v.json("profile")
+v.json("profile", "address.city")
+```
+
+---
+
 ### Control flow
 
 #### `ifElse(condition, whenTrue, whenFalse)`

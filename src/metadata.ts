@@ -9,7 +9,9 @@ export type MindooDBViewLanguageHelperCategory =
   | "nullability"
   | "date"
   | "path"
-  | "control-flow";
+  | "control-flow"
+  | "crypto"
+  | "json";
 
 export type MindooDBViewLanguageArgumentKind =
   | "expression"
@@ -218,6 +220,19 @@ export const mindooDBViewLanguageHelpers = [
     { name: "bindings", kind: "bindings", description: "An object of named intermediate expressions." },
     { name: "build", kind: "builder", description: "A callback that receives typed references to the bindings and returns the final expression." },
   ], ["v.let({ hours: v.toNumber(v.field(\"hours\")) }, ({ hours }) => v.coalesce(hours, v.number(0)))"]),
+  helper("decryptField", "crypto", "Decrypt an encrypted field to plaintext.", "Decrypts a `<name>_encrypted` field and returns the plaintext string. The optional `key` names the symmetric key id; when omitted the host falls back to the field's `<name>_encrypted_key` companion and finally the tenant default key. Decryption is performed out-of-band by the host runtime, so this requires the named key to be present in the source tenant's unlocked key bag.", "decryptField(field, key?)", "Expression<string | null>", [
+    { name: "field", kind: "string", description: "The encrypted field name, e.g. \"user_details_encrypted\"." },
+    { name: "key", kind: "expression", description: "Optional key id (literal or expression) overriding the default key resolution.", optional: true },
+  ], ["v.decryptField(\"user_details_encrypted\")", "v.decryptField(\"contact_encrypted\", v.field(\"contact_encrypted_key\"))"]),
+  helper("decryptJson", "crypto", "Decrypt an encrypted field and parse it as JSON.", "Decrypts a `<name>_encrypted` field, parses the plaintext with JSON.parse, and returns the resulting object/value. The optional dot `path` selects a nested value. The optional `key` overrides default key resolution (when supplying a key without a path, pass an empty string for the path). Requires the named key in the source tenant's unlocked key bag.", "decryptJson(field, path?, key?)", "Expression<unknown>", [
+    { name: "field", kind: "string", description: "The encrypted field name, e.g. \"user_details_encrypted\"." },
+    { name: "path", kind: "string", description: "Optional dot-separated path into the parsed JSON, e.g. \"address.city\".", optional: true },
+    { name: "key", kind: "expression", description: "Optional key id (literal or expression) overriding the default key resolution.", optional: true },
+  ], ["v.decryptJson(\"user_details_encrypted\", \"username\")", "v.decryptJson(\"contact_encrypted\", \"email\", v.field(\"contact_encrypted_key\"))"]),
+  helper("json", "json", "Read a plain JSON field as an object.", "Reads a field and parses it with JSON.parse when it is a string, passing objects/values through unchanged. The optional dot `path` selects a nested value. Use this for regular (non-encrypted) JSON fields.", "json(field, path?)", "Expression<unknown>", [
+    { name: "field", kind: "string", description: "The field name holding a JSON string or object." },
+    { name: "path", kind: "string", description: "Optional dot-separated path into the parsed JSON, e.g. \"address.city\".", optional: true },
+  ], ["v.json(\"profile\")", "v.json(\"profile\", \"address.city\")"]),
 ] as const satisfies readonly MindooDBViewLanguageHelperMetadata[];
 
 export const mindooDBViewLanguageHelpersByName = Object.freeze(

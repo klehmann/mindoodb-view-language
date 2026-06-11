@@ -20,6 +20,7 @@ export type {
   MindooDBViewLanguageHelperMetadata,
 } from "./metadata";
 export {
+  collectDecryptRequests,
   evaluateExpression,
   getCategoryRowByPath,
   getDefaultExpansionState,
@@ -30,4 +31,4 @@ export {
   pageViewRows,
   updateExpansionState,
 } from "./evaluator";
-export type { ViewEvaluatorDocument } from "./evaluator";
+export type { DecryptRequest, ViewEvaluatorDocument } from "./evaluator";
