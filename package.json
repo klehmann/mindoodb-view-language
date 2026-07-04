@@ -30,6 +30,9 @@
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm run test"
   },
+  "dependencies": {
+    "mindoodb": "^0.0.29"
+  },
   "devDependencies": {
     "@types/node": "25.5.0",
     "tsup": "^8.5.1",

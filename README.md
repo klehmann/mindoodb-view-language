@@ -1,5 +1,14 @@
 # MindooDB App View Language
 
+> **Note:** The expression layer of this package (types, builder,
+> formula parser, helper metadata, and `evaluateExpression`) has moved into
+> the `mindoodb` core package; this package re-exports it as a
+> compatibility wrapper, so existing imports keep working. Only the
+> in-memory view-tree builder (`pageViewRows` and friends) still lives
+> here — it is deprecated in favor of MindooDB's summary-backed ephemeral
+> views (`db.queryView()`), which evaluate the same expression language
+> without materializing documents.
+
 The MindooDB app view language is the declarative expression system for defining derived columns and filters in app-defined views. It replaces both raw field paths and free-form JavaScript with a typed, composable builder API that compiles to a JSON-safe AST.
 
 ## Why a dedicated language?

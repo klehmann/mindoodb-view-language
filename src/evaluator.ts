@@ -1,12 +1,32 @@
+import {
+  collectDecryptRequests,
+  evaluateExpression,
+  expressionToBoolean,
+  expressionToNumber,
+  getFieldValue,
+} from "mindoodb";
 import type {
   MindooDBAppBooleanExpression,
-  MindooDBAppExpression,
   MindooDBAppViewDefinition,
   MindooDBAppViewExpansionState,
   MindooDBAppViewPageRequest,
   MindooDBAppViewPageResult,
   MindooDBAppViewRow,
 } from "./types";
+
+// Expression evaluation moved into mindoodb core; re-exported here for
+// compatibility.
+export { collectDecryptRequests, evaluateExpression, getFieldValue };
+export type { DecryptRequest } from "mindoodb";
+
+// -----------------------------------------------------------------------------
+// In-memory view tree builder.
+//
+// DEPRECATED: prefer summary-backed ephemeral views via `db.queryView()` in
+// mindoodb — they evaluate the same expression language without
+// materializing documents and support incremental updates. This tree
+// builder remains for compatibility with existing hosts (mindoodb-haven).
+// -----------------------------------------------------------------------------
 
 type InternalRow = MindooDBAppViewRow & {
   childKeys: string[];
@@ -40,31 +60,6 @@ export type ViewEvaluatorDocument = {
   decrypted?: Record<string, unknown>;
 };
 
-type EvaluationContext = {
-  doc: Record<string, unknown>;
-  values: Record<string, unknown>;
-  origin: string;
-  createdAt?: string | null;
-  decryptionKeyId?: string | null;
-  witnessed?: boolean;
-  awaitingWitness?: boolean;
-  counts?: Partial<ViewRowCountContext>;
-  variables: Record<string, unknown>;
-  /** Pre-resolved plaintext for `decrypt` nodes, keyed by field name. */
-  decrypted?: Record<string, unknown>;
-};
-
-/** A field whose ciphertext a view definition needs decrypted before evaluation. */
-export type DecryptRequest = {
-  field: string;
-  key?: MindooDBAppExpression;
-};
-
-type AttachmentLike = {
-  fileName?: unknown;
-  size?: unknown;
-};
-
 type ViewRowCountContext = {
   childCount: number;
   childCategoryCount: number;
@@ -82,330 +77,9 @@ export function getDefaultExpansionState(definition: MindooDBAppViewDefinition):
     : { mode: "expanded", ids: [] };
 }
 
-/** Reads a dot-separated path from an object and returns `undefined` when any segment is missing. */
-export function getFieldValue(source: Record<string, unknown>, path: string): unknown {
-  if (!path) {
-    return undefined;
-  }
-  return path.split(".").reduce<unknown>((current, part) => {
-    if (current && typeof current === "object" && part in current) {
-      return (current as Record<string, unknown>)[part];
-    }
-    return undefined;
-  }, source);
-}
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function toBoolean(value: unknown): boolean {
-  if (typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return value !== 0;
-  }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    return normalized !== "" && normalized !== "false" && normalized !== "0" && normalized !== "no";
-  }
-  return Boolean(value);
-}
-
-function toDate(value: unknown): Date | null {
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-  if (typeof value === "number" || typeof value === "string") {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-  return null;
-}
-
-function leftString(value: unknown, by: unknown): string {
-  const text = String(value ?? "");
-  if (typeof by === "number") {
-    const count = Number.isFinite(by) ? Math.max(0, Math.trunc(by)) : 0;
-    return text.slice(0, count);
-  }
-  const delimiter = String(by ?? "");
-  const index = text.indexOf(delimiter);
-  return index === -1 ? text : text.slice(0, index);
-}
-
-function rightString(value: unknown, by: unknown): string {
-  const text = String(value ?? "");
-  if (typeof by === "number") {
-    const count = Number.isFinite(by) ? Math.max(0, Math.trunc(by)) : 0;
-    return count === 0 ? "" : text.slice(-count);
-  }
-  const delimiter = String(by ?? "");
-  const index = text.lastIndexOf(delimiter);
-  return index === -1 ? text : text.slice(index + delimiter.length);
-}
-
-function getAttachmentList(doc: Record<string, unknown>): AttachmentLike[] {
-  const attachments = doc._attachments;
-  return Array.isArray(attachments) ? attachments as AttachmentLike[] : [];
-}
-
-function getViewRowCount(context: EvaluationContext, key: keyof ViewRowCountContext): number {
-  return context.counts?.[key] ?? 0;
-}
-
-/** Evaluates a single operation node after its arguments have been recursively resolved. */
-function evaluateOperation(expression: Extract<MindooDBAppExpression, { kind: "operation" }>, context: EvaluationContext): unknown {
-  const args = expression.args.map((arg) => evaluateExpression(arg, context));
-  switch (expression.op) {
-    case "createdAt":
-      return context.createdAt ?? null;
-    case "decryptionKeyId":
-      return context.decryptionKeyId ?? null;
-    case "isWitnessed":
-      return context.witnessed ?? false;
-    case "isAwaitingWitness":
-      return context.awaitingWitness ?? false;
-    case "attachmentNames":
-      return getAttachmentList(context.doc)
-        .map((attachment) => attachment.fileName)
-        .filter((value): value is string => typeof value === "string");
-    case "attachmentLengths":
-      return getAttachmentList(context.doc)
-        .map((attachment) => attachment.size)
-        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-    case "attachmentCount":
-      return getAttachmentList(context.doc).length;
-    case "childCount":
-      return getViewRowCount(context, "childCount");
-    case "childCategoryCount":
-      return getViewRowCount(context, "childCategoryCount");
-    case "childDocumentCount":
-      return getViewRowCount(context, "childDocumentCount");
-    case "descendantCount":
-      return getViewRowCount(context, "descendantCount");
-    case "descendantCategoryCount":
-      return getViewRowCount(context, "descendantCategoryCount");
-    case "descendantDocumentCount":
-      return getViewRowCount(context, "descendantDocumentCount");
-    case "siblingCount":
-      return getViewRowCount(context, "siblingCount");
-    case "add":
-      return (toNumber(args[0]) ?? 0) + (toNumber(args[1]) ?? 0);
-    case "sub":
-      return (toNumber(args[0]) ?? 0) - (toNumber(args[1]) ?? 0);
-    case "mul":
-      return (toNumber(args[0]) ?? 0) * (toNumber(args[1]) ?? 0);
-    case "div": {
-      const divisor = toNumber(args[1]);
-      return divisor && divisor !== 0 ? (toNumber(args[0]) ?? 0) / divisor : null;
-    }
-    case "mod": {
-      const divisor = toNumber(args[1]);
-      return divisor && divisor !== 0 ? (toNumber(args[0]) ?? 0) % divisor : null;
-    }
-    case "eq":
-      return args[0] === args[1];
-    case "neq":
-      return args[0] !== args[1];
-    case "gt":
-      return String(args[0] ?? "") > String(args[1] ?? "");
-    case "gte":
-      return String(args[0] ?? "") >= String(args[1] ?? "");
-    case "lt":
-      return String(args[0] ?? "") < String(args[1] ?? "");
-    case "lte":
-      return String(args[0] ?? "") <= String(args[1] ?? "");
-    case "and":
-      return args.every((value) => toBoolean(value));
-    case "or":
-      return args.some((value) => toBoolean(value));
-    case "not":
-      return !toBoolean(args[0]);
-    case "concat":
-      return args.filter((part) => part !== null && part !== undefined && part !== "").join("");
-    case "lower":
-      return String(args[0] ?? "").toLowerCase();
-    case "upper":
-      return String(args[0] ?? "").toUpperCase();
-    case "trim":
-      return String(args[0] ?? "").trim();
-    case "left":
-      return leftString(args[0], args[1]);
-    case "right":
-      return rightString(args[0], args[1]);
-    case "number":
-      return toNumber(args[0]);
-    case "string":
-      return String(args[0] ?? "");
-    case "boolean":
-      return toBoolean(args[0]);
-    case "contains":
-      return String(args[0] ?? "").toLowerCase().includes(String(args[1] ?? "").toLowerCase());
-    case "startsWith":
-      return String(args[0] ?? "").toLowerCase().startsWith(String(args[1] ?? "").toLowerCase());
-    case "endsWith":
-      return String(args[0] ?? "").toLowerCase().endsWith(String(args[1] ?? "").toLowerCase());
-    case "coalesce":
-      return args.find((value) => value !== null && value !== undefined && value !== "");
-    case "exists":
-      return args[0] !== null && args[0] !== undefined && args[0] !== "";
-    case "notExists":
-      return args[0] === null || args[0] === undefined || args[0] === "";
-    case "pathJoin":
-      return args
-        .map((part) => String(part ?? "").trim())
-        .filter(Boolean)
-        .join("\\");
-    case "datePart": {
-      const date = toDate(args[0]);
-      if (!date) {
-        return null;
-      }
-      switch (expression.part) {
-        case "year":
-          return date.getUTCFullYear();
-        case "month":
-          return String(date.getUTCMonth() + 1).padStart(2, "0");
-        case "day":
-          return String(date.getUTCDate()).padStart(2, "0");
-        case "quarter":
-          return `Q${Math.ceil((date.getUTCMonth() + 1) / 3)}`;
-        default:
-          return null;
-      }
-    }
-  }
-}
-
-/**
- * Parses a JSON string into a value (objects/values pass through unchanged),
- * then optionally selects a nested value via a dot `path`. Returns null when
- * the input is nullish or the string is not valid JSON.
- */
-function parseAndExtract(value: unknown, path?: string): unknown {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  let parsed: unknown = value;
-  if (typeof value === "string") {
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
-  if (!path) {
-    return parsed;
-  }
-  if (parsed && typeof parsed === "object") {
-    return getFieldValue(parsed as Record<string, unknown>, path);
-  }
-  return undefined;
-}
-
-/**
- * Evaluates an expression against a document plus the current view/value
- * context. This is the runtime counterpart of the builder and parser.
- */
-export function evaluateExpression(expression: MindooDBAppExpression, context: EvaluationContext): unknown {
-  switch (expression.kind) {
-    case "literal":
-      return expression.value;
-    case "field":
-      return getFieldValue(context.doc, expression.path);
-    case "value":
-      return getFieldValue(context.values, expression.path);
-    case "origin":
-      return context.origin;
-    case "variable":
-      return context.variables[expression.name];
-    case "if":
-      return toBoolean(evaluateExpression(expression.condition, context))
-        ? evaluateExpression(expression.whenTrue, context)
-        : evaluateExpression(expression.whenFalse, context);
-    case "let": {
-      const nextVariables = { ...context.variables };
-      for (const [name, valueExpression] of Object.entries(expression.bindings)) {
-        nextVariables[name] = evaluateExpression(valueExpression, {
-          ...context,
-          variables: nextVariables,
-        });
-      }
-      return evaluateExpression(expression.result, {
-        ...context,
-        variables: nextVariables,
-      });
-    }
-    case "decrypt": {
-      const raw = context.decrypted?.[expression.field] ?? null;
-      if (!expression.json) {
-        return raw;
-      }
-      return parseAndExtract(raw, expression.path);
-    }
-    case "json":
-      return parseAndExtract(getFieldValue(context.doc, expression.field), expression.path);
-    case "operation":
-      return evaluateOperation(expression, context);
-  }
-}
-
-/**
- * Walks an expression tree and collects every `decrypt` node so the host
- * runtime knows which `_encrypted` fields it must decrypt before evaluation.
- * `json` nodes need no decryption and are ignored.
- */
-export function collectDecryptRequests(expression: MindooDBAppExpression): DecryptRequest[] {
-  const requests: DecryptRequest[] = [];
-  const visit = (node: MindooDBAppExpression): void => {
-    switch (node.kind) {
-      case "decrypt":
-        requests.push({ field: node.field, key: node.key });
-        if (node.key) {
-          visit(node.key);
-        }
-        break;
-      case "operation":
-        for (const arg of node.args) {
-          visit(arg);
-        }
-        break;
-      case "if":
-        visit(node.condition);
-        visit(node.whenTrue);
-        visit(node.whenFalse);
-        break;
-      case "let":
-        for (const binding of Object.values(node.bindings)) {
-          visit(binding);
-        }
-        visit(node.result);
-        break;
-      case "literal":
-      case "field":
-      case "value":
-      case "origin":
-      case "variable":
-      case "json":
-        break;
-    }
-  };
-  visit(expression);
-  return requests;
-}
-
 function compareValues(left: unknown, right: unknown, sorting = "ascending") {
-  const leftNumber = toNumber(left);
-  const rightNumber = toNumber(right);
+  const leftNumber = expressionToNumber(left);
+  const rightNumber = expressionToNumber(right);
   if (leftNumber !== null && rightNumber !== null) {
     const result = leftNumber - rightNumber;
     return sorting === "descending" ? -result : result;
@@ -456,7 +130,7 @@ function matchesFilter(
   if (!filter) {
     return true;
   }
-  return toBoolean(evaluateExpression(filter, {
+  return expressionToBoolean(evaluateExpression(filter, {
     doc: document,
     values: {},
     origin,
