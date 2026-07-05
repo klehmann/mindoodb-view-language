@@ -31,7 +31,7 @@
     "prepublishOnly": "npm run build && npm run test"
   },
   "dependencies": {
-    "mindoodb": "^0.0.30"
+    "mindoodb": "^0.0.32"
   },
   "devDependencies": {
     "@types/node": "25.5.0",
